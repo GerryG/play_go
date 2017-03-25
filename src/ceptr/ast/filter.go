@@ -5,7 +5,7 @@
 package ast
 
 import (
-	"go/token"
+	"ceptr/token"
 	"sort"
 )
 

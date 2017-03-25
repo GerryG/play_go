@@ -89,38 +89,19 @@ const (
 	COLON     // :
 	operator_end
 
-	keyword_beg
-	// Keywords
-	BREAK
-	CASE
-	CHAN
-	CONST
-	CONTINUE
-
-	DEFAULT
-	DEFER
-	ELSE
-	FALLTHROUGH
-	FOR
-
-	FUNC
-	GO
-	GOTO
-	IF
-	IMPORT
-
-	INTERFACE
-	MAP
-	PACKAGE
-	RANGE
-	RETURN
-
-	SELECT
-	STRUCT
-	SWITCH
-	TYPE
-	VAR
-	keyword_end
+	directive_beg
+	// Directives
+	CONTEXT
+	DECLARE
+	DATA
+	GLOBALDATA
+	PROCESS
+	PROCESSL
+	PROTOCOL
+	STRUCTURE
+	SYMBOL
+	LABEL
+	directive_end
 )
 
 var tokens = [...]string{
@@ -192,35 +173,16 @@ var tokens = [...]string{
 	SEMICOLON: ";",
 	COLON:     ":",
 
-	BREAK:    "break",
-	CASE:     "case",
-	CHAN:     "chan",
-	CONST:    "const",
-	CONTINUE: "continue",
-
-	DEFAULT:     "default",
-	DEFER:       "defer",
-	ELSE:        "else",
-	FALLTHROUGH: "fallthrough",
-	FOR:         "for",
-
-	FUNC:   "func",
-	GO:     "go",
-	GOTO:   "goto",
-	IF:     "if",
-	IMPORT: "import",
-
-	INTERFACE: "interface",
-	MAP:       "map",
-	PACKAGE:   "package",
-	RANGE:     "range",
-	RETURN:    "return",
-
-	SELECT: "select",
-	STRUCT: "struct",
-	SWITCH: "switch",
-	TYPE:   "type",
-	VAR:    "var",
+	CONTEXT:    "Context",
+	DECLARE:    "Declare",
+	DATA:       "Data",
+	GLOBALDATA: "GlobalData",
+	PROCESS:    "Process",
+	PROCESSL:   "ProcessL",
+	PROTOCOL:   "Protocol",
+	STRUCTURE:  "Structure",
+	SYMBOL:     "Symbol",
+	LABEL:      "Label",
 }
 
 // String returns the string corresponding to the token tok.
@@ -272,22 +234,23 @@ func (op Token) Precedence() int {
 	return LowestPrec
 }
 
-var keywords map[string]Token
+var directives map[string]Token
 
 func init() {
-	keywords = make(map[string]Token)
-	for i := keyword_beg + 1; i < keyword_end; i++ {
-		keywords[tokens[i]] = i
+	directives = make(map[string]Token)
+	for i := directive_beg + 1; i < directive_end; i++ {
+		directives[tokens[i]] = i
 	}
 }
 
 // Lookup maps an identifier to its keyword token or IDENT (if not a keyword).
 //
-func Lookup(ident string) Token {
-	if tok, is_keyword := keywords[ident]; is_keyword {
+func LookupDirective(ident string) Token {
+	tok, is_directive := directives[ident]
+	if is_directive {
 		return tok
 	}
-	return IDENT
+	return ILLEGAL
 }
 
 // Predicates
@@ -302,7 +265,7 @@ func (tok Token) IsLiteral() bool { return literal_beg < tok && tok < literal_en
 //
 func (tok Token) IsOperator() bool { return operator_beg < tok && tok < operator_end }
 
-// IsKeyword returns true for tokens corresponding to keywords;
+// IsDirective returns true for tokens corresponding to keywords;
 // it returns false otherwise.
 //
-func (tok Token) IsKeyword() bool { return keyword_beg < tok && tok < keyword_end }
+func (tok Token) IsDirective() bool { return directive_beg < tok && tok < directive_end }

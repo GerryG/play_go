@@ -7,7 +7,7 @@ package ast
 import (
 	"bytes"
 	"fmt"
-	"go/token"
+	"ceptr/token"
 	"sort"
 )
 

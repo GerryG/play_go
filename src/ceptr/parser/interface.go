@@ -9,8 +9,8 @@ package parser
 import (
 	"bytes"
 	"errors"
-	"go/ast"
-	"go/token"
+	"ceptr/ast"
+	"ceptr/token"
 	"io"
 	"io/ioutil"
 	"os"
@@ -123,12 +123,12 @@ func ParseFile(fset *token.FileSet, filename string, src interface{}, mode Mode)
 	return
 }
 
-// ParseDir calls ParseFile for all files with names ending in ".go" in the
+// ParseDir calls ParseFile for all files with names ending in ".def" in the
 // directory specified by path and returns a map of package name -> package
 // AST with all the packages found.
 //
 // If filter != nil, only the files with os.FileInfo entries passing through
-// the filter (and ending in ".go") are considered. The mode bits are passed
+// the filter (and ending in ".def") are considered. The mode bits are passed
 // to ParseFile unchanged. Position information is recorded in fset, which
 // must not be nil.
 //
@@ -150,7 +150,7 @@ func ParseDir(fset *token.FileSet, path string, filter func(os.FileInfo) bool, m
 
 	pkgs = make(map[string]*ast.Package)
 	for _, d := range list {
-		if strings.HasSuffix(d.Name(), ".go") && (filter == nil || filter(d)) {
+		if strings.HasSuffix(d.Name(), ".def") && (filter == nil || filter(d)) {
 			filename := filepath.Join(path, d.Name())
 			if src, err := ParseFile(fset, filename, nil, mode); err == nil {
 				name := src.Name.Name

@@ -8,7 +8,7 @@ package ast
 
 import (
 	"fmt"
-	"go/token"
+	"ceptr/token"
 	"io"
 	"os"
 	"reflect"

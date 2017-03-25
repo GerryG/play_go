@@ -19,8 +19,8 @@ package parser
 import (
 	"fmt"
 	"ceptr/ast"
+	//"ceptr/token"
 	"ceptr/scanner"
-	"ceptr/token"
 	"strconv"
 	"strings"
 	"unicode"
@@ -70,6 +70,8 @@ type parser struct {
 	targetStack [][]*ast.Ident // stack of unresolved labels
 }
 
+// fset are the processed files, filename will be added to it and then we use
+// the parser to parse it, reading it from src. ScanComments mode is passed to parser.
 func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode Mode) {
 	p.file = fset.AddFile(filename, -1, len(src))
 	var m scanner.Mode
@@ -82,7 +84,8 @@ func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode Mod
 	p.mode = mode
 	p.trace = mode&Trace != 0 // for convenience (p.trace is used frequently)
 
-	p.next()
+	p.next() // The parser is initialized with p.ch = ' ', and the start of file is the next
+           // location, advance scanner to begin scanning at the first char of src.
 }
 
 // ----------------------------------------------------------------------------
@@ -254,6 +257,17 @@ func (p *parser) next0() {
 		}
 	}
 
+  // what if we just used an interface on the parser to handle the next token?
+  // then Scan does the whole file, us
+  // func (s *scanner) Scan(token_handler parser.TokenHandler /* interface to parser */) {
+  //      while (token_handler())
+  //    }
+  // then to invoke:
+  // p.scanner.Scan(func() bool {
+  //   p.pos, p.tok, p.lit = s.ScanToken() // original Scan p is closure var
+  //   return s.Eof()
+  // } )
+  // get the next token from the scanner
 	p.pos, p.tok, p.lit = p.scanner.Scan()
 }
 
@@ -396,7 +410,6 @@ func (p *parser) expect(tok token.Token) token.Pos {
 	return pos
 }
 
-// expectClosing is like expect but provides a better error message
 // for the common case of a missing comma before a newline.
 //
 func (p *parser) expectClosing(tok token.Token, context string) token.Pos {
@@ -441,7 +454,7 @@ func (p *parser) atComma(context string, follow token.Token) bool {
 
 func assert(cond bool, msg string) {
 	if !cond {
-		panic("go/parser internal error: " + msg)
+		panic("ceptr/parser internal error: " + msg)
 	}
 }
 
@@ -527,6 +540,16 @@ func (p *parser) safePos(pos token.Pos) (res token.Pos) {
 	return pos
 }
 
+func (p *parser) parseDirective() token.Token {
+	tok := p.tok
+	if !p.tok.IsDirective() {
+		p.errorExpected(pos, "a directive")
+	}
+	p.next() // make progress
+	return tok
+}
+
+// expectClosing is like expect but provides a better error message
 // ----------------------------------------------------------------------------
 // Identifiers
 
@@ -2219,7 +2242,7 @@ type parseSpecFunction func(doc *ast.CommentGroup, keyword token.Token, iota int
 
 func isValidImport(lit string) bool {
 	const illegalChars = `!"#$%&'()*,:;<=>?[\]^{|}` + "`\uFFFD"
-	s, _ := strconv.Unquote(lit) // go/scanner returns a legal string literal
+	s, _ := strconv.Unquote(lit) // ceptr/scanner returns a legal string literal
 	for _, r := range s {
 		if !unicode.IsGraphic(r) || unicode.IsSpace(r) || strings.ContainsRune(illegalChars, r) {
 			return false
@@ -2459,9 +2482,8 @@ func (p *parser) parseFile() *ast.File {
 		return nil
 	}
 
-	// package clause
 	doc := p.leadComment
-	pos := p.expect(token.PACKAGE)
+	directive := p.parseDirective()
 	// Go spec: The package clause is not a declaration;
 	// the package name does not appear in any scope.
 	ident := p.parseIdent()

@@ -8,7 +8,7 @@
 package ast
 
 import (
-	"go/token"
+	"ceptr/token"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -145,6 +145,16 @@ func (g *CommentGroup) Text() string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+//
+// Semtree, etc.
+//
+
+type DataTree struct {
+  ast int
+  Children []*DataTree
+  ChildCount int
 }
 
 // ----------------------------------------------------------------------------

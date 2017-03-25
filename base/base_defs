@@ -1,0 +1,1047 @@
+########################################################################################
+# the base definitions for all systems.
+# Copyright (C) 2013-2016, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al).  This file is part of the Ceptr platform and is released under the terms of the license contained in the file LICENSE (GPLv3).
+
+# this file gets read by base_defs.pl which generates base_defs.c and base_defs.h from it.
+#
+# Some notes:
+#
+# general format:
+# <Directive>:<params>; <comments>
+#
+# <Directive> =
+#
+# Context: <name>;
+# directive: CONTEXT COLON WORD SEMI_EOL
+#
+#        | DECLARE COLON wordlist SEMI_EOL
+# Symbol: <symbol-label>,<structure>;                
+#        | SYMBOL COLON WORD COMMA WORD SEMI_EOL
+# or
+# Symbol: <symbol-label>,'['<structure-def>']';
+#        | SYMBOL COLON WORD COMMA bracketted SEMI_EOL
+#
+# Structure: <symbol-label>,<structure-def>;
+#        | STRUCTURE COLON WORD COMMA balanced SEMI_EOL
+#
+# <structure-def> = <structure-sequence> | <structure-zero-or-one> | <structure-zero-or-more> | <structure-one-or-more> | <structure-or> | <structure-structure> | <structure-anything>
+# <structure-sequence>     => '(' <structure-def> [',' <structure-def>]... ')'
+# <structure-zero-or-one>  => '?' <structure-def>
+# <structure-zero-or-more> => '*' <structure-def>
+# <structure-one-or-more>  => '+' <structure-def>
+# <structure-or>           =>  '|' '{' <structure-def>[ '|' <structure-def>]... '}'
+# <structure-structure>    => '%' <structure-label>
+# <structure-anything>     => '!'
+#
+# or more informally and in terms of the tree it creates:
+# (x,y...)    -> (STRUCTURE_SEQUENCE (x) (y))
+# ?x     -> (STRUCTURE_ZERO_OR_ONE x)
+# *x     -> (STRUCTURE_ZERO_OR_MORE x)
+# +x     -> (STRUCTURE_ONE_OR_MORE x)
+# |{x|y|...} -> (STRUCTURE_OR x y)
+# %x     -> (STRUCTURE_STRUCTURE:x)
+# !      -> (STRUCTURE_ANYTHING)
+#
+# Data: <data-label>,<lispy encoded tree>;
+#        | DATA COLON WORD COMMA balanced SEMI_EOL
+# GlobalData: <data-label>, <lispy encoded tree>;
+#        | GLOBALDATA COLON WORD COMMA balanced SEMI_EOL
+# Process: <process-label>,<code-tree>,<label>,<result-label>,<output-signature-type>,<output-signature-sub-type>,[<input-signature-type>,<input-signature-sub-type>].,0;
+#        | PROCESS COLON process_args SEMI_EOL
+# ProcessL: <process-label>,<code-tree>,<label>,<linked-to>,<link-type>,<result-label>,<output-signature-type>,<output-signature-sub-type>,[<input-signature-type>,<input-signature-sub-type>].,0;
+#        | PROCESSL COLON process_args SEMI_EOL
+# Label: <semantic-id-to-label>,<label-type>,<string>;
+#        | LABEL COLON WORD COMMA WORD COMMA STRING SEMI_EOL
+# Protocol: <protocol-label>,<data>;
+#        | PROTOCOL COLON wordlist SEMI_EOL
+
+Context: SYS;
+
+# These are "bottoming out" structures that are implemented by the system, not composed;
+# thus we use the NULL_SYMBOL to indicate their surface definition, because it's not really defined in ceptr terms.
+Structure: BIT,NULL_SYMBOL;             surface is 0 or 1
+Structure: INTEGER,NULL_SYMBOL;         surface is a c int
+Structure: INTEGER64,NULL_SYMBOL;       surface is a c long
+Structure: FLOAT,NULL_SYMBOL;           surface is a c float
+Structure: CHAR,NULL_SYMBOL;            surface is a c char
+Structure: CSTRING,NULL_SYMBOL;         surface is a null terminated set of bytes
+Structure: SYMBOL,NULL_SYMBOL;          surface is a c struct (SemID) representing symbols
+Structure: STRUCTURE,NULL_SYMBOL;       surface is a c struct (SemID) representing structures
+Structure: PROCESS,NULL_SYMBOL;         surface is a c struct (SemID) representing processes
+Structure: PROTOCOL,NULL_SYMBOL;        surface is a c struct (SemID) representing protocols
+Structure: RECEPTOR,NULL_SYMBOL;        surface is a c struct (SemID) representing receptors
+Structure: SCAPE,NULL_SYMBOL;
+Structure: ENUM,NULL_SYMBOL;            @todo
+Structure: TREE_PATH,NULL_SYMBOL;       surface is an -1 terminated set of c ints
+Structure: XADDR,NULL_SYMBOL;
+Structure: SURFACE,NULL_SYMBOL;
+Structure: TREE,NULL_SYMBOL;            surface is a c pointer to a tree
+Structure: RECEPTOR_SURFACE,NULL_SYMBOL;   surface is a c pointer to a receptor structure
+Structure: SEMTREX,NULL_SYMBOL;
+Structure: CPOINTER,NULL_SYMBOL;        surface is c pointer of some sort, used for edge receptor data
+Structure: UUID,NULL_SYMBOL;            surface is a c struct holding a UUID
+Structure: BLOB,NULL_SYMBOL;            surface is an undefined blob of bytes
+
+# 
+Declare: STRUCTURES,SYMBOLS,PROCESSES,PROTOCOLS,RECEPTORS,SCAPES;
+Symbol: DEFINITIONS,[(STRUCTURES,SYMBOLS,PROCESSES,PROTOCOLS,RECEPTORS,*SCAPES)];
+
+Declare: STRUCTURE_SYMBOL,STRUCTURE_SEQUENCE,STRUCTURE_OR,STRUCTURE_ZERO_OR_MORE,STRUCTURE_ONE_OR_MORE;
+Symbol: STRUCTURE_STRUCTURE,STRUCTURE;
+Symbol: STRUCTURE_ANYTHING,NULL_STRUCTURE;
+
+Structure: STRUCTURE_DEF,|{STRUCTURE_SYMBOL|STRUCTURE_SEQUENCE|STRUCTURE_OR|STRUCTURE_ZERO_OR_MORE|STRUCTURE_ONE_OR_MORE|STRUCTURE_ZERO_OR_ONE|STRUCTURE_STRUCTURE|STRUCTURE_ANYTHING};
+Structure: LABEL,+%CSTRING;
+Symbol: STRUCTURE_LABEL,LABEL;
+Symbol: STRUCTURE_DEFINITION,[(STRUCTURE_LABEL,STRUCTURE_DEF)];
+Symbol: STRUCTURES,[*STRUCTURE_DEFINITION];
+Symbol: STRUCTURE_SEQUENCE,[+STRUCTURE_DEF];
+Symbol: STRUCTURE_OR,[+STRUCTURE_DEF];
+Symbol: STRUCTURE_SYMBOL,SYMBOL;
+Symbol: STRUCTURE_ZERO_OR_MORE,STRUCTURE_DEF;
+Symbol: STRUCTURE_ONE_OR_MORE,STRUCTURE_DEF;
+Symbol: STRUCTURE_ZERO_OR_ONE,STRUCTURE_DEF;
+
+Symbol: SYMBOL_STRUCTURE,STRUCTURE;
+Symbol: SYMBOL_LABEL,LABEL;
+Symbol: SYMBOL_DEFINITION,[(SYMBOL_LABEL,SYMBOL_STRUCTURE)];
+Symbol: SYMBOLS,[*SYMBOL_DEFINITION];
+
+Symbol: BOOLEAN,BIT;
+Symbol: SEMTREX_MATCH_PATH,TREE_PATH;       Path to symbol matched by semtrex
+Declare: SEMTREX_SYMBOL_LITERAL,SEMTREX_SYMBOL_LITERAL_NOT,SEMTREX_SEQUENCE,SEMTREX_OR,SEMTREX_NOT,SEMTREX_SYMBOL_ANY,SEMTREX_ZERO_OR_MORE,SEMTREX_ONE_OR_MORE,SEMTREX_ZERO_OR_ONE,SEMTREX_VALUE_LITERAL,SEMTREX_VALUE_LITERAL_NOT,SEMTREX_GROUP,SEMTREX_WALK,SEMTREX_DESCEND;
+Structure: SEMTREX_DEF,|{SEMTREX_SYMBOL_LITERAL|SEMTREX_SYMBOL_LITERAL_NOT|SEMTREX_SEQUENCE|SEMTREX_OR|SEMTREX_NOT|SEMTREX_SYMBOL_ANY|SEMTREX_ZERO_OR_MORE|SEMTREX_ONE_OR_MORE|SEMTREX_ZERO_OR_ONE|SEMTREX_VALUE_LITERAL|SEMTREX_VALUE_LITERAL_NOT|SEMTREX_GROUP|SEMTREX_WALK|SEMTREX_DESCEND};
+Symbol: SEMTREX_SYMBOL,SYMBOL;              Symbols in the literal set
+Symbol: SEMTREX_SYMBOL_SET,[+SEMTREX_SYMBOL];
+Structure: SEMTREX_SYMBOL_LITERAL_DEF,(|{SEMTREX_SYMBOL|SEMTREX_SYMBOL_SET},*!);
+Symbol: SEMTREX_SYMBOL_LITERAL,SEMTREX_SYMBOL_LITERAL_DEF;        matches on the semantic type.
+Symbol: SEMTREX_SYMBOL_LITERAL_NOT,SEMTREX_SYMBOL_LITERAL_DEF;    matches any symbol or value of the node except.
+Symbol: SEMTREX_SEQUENCE,[+SEMTREX_DEF];        Match on a sequence of child nodes which are any valid semtrex's.  Ex: comma separated nodes
+#///@todo, the structure really should be something like SEMTREX_PAIR
+Symbol: SEMTREX_OR,[(SEMTREX_DEF,SEMTREX_DEF)];     Logical OR between two Semtrex expressions.      Ex: |
+Symbol: SEMTREX_NOT,SEMTREX_DEF;            Logical ~ between of a Semtrex expressions.      Ex: ~ (not implemented)
+Symbol: SEMTREX_SYMBOL_ANY,[?!];            match any symbol or value of the node.           Ex: .
+Symbol: SEMTREX_ZERO_OR_MORE,SEMTREX_DEF;   Requires one child Semtrex and matches on zero or more of that Semtrex.  Ex: /0/TestSemtrex*
+Symbol: SEMTREX_ONE_OR_MORE,SEMTREX_DEF;    Requires one child Semtrex and matches on one or more of that Semtrex.   Ex: /0/TestSemtrex+
+Symbol: SEMTREX_ZERO_OR_ONE,SEMTREX_DEF;    Requires one child Semtrex and matches on zero or one of that Semtrex.   Ex: /0/TestSemtrex?
+Symbol: SEMTREX_VALUE_SET,[+!];             this is of the symbols to match on
+Structure: SEMTREX_VALUE_LITERAL_DEF,|{!|SEMTREX_VALUE_SET};
+Symbol: SEMTREX_VALUE_LITERAL,SEMTREX_VALUE_LITERAL_DEF;         Matches on the semantic type and the data values.
+Symbol: SEMTREX_VALUE_LITERAL_NOT,SEMTREX_VALUE_LITERAL_DEF;      Matches on logical not of semantic type and data values
+Symbol: SEMTREX_GROUP,SYMBOL;               Grouping, should have 1 child.. bad def!!       Ex: <...>operator
+Symbol: SEMTREX_DESCEND,SEMTREX_DEF;     
+Symbol: SEMTREX_WALK,SEMTREX_DEF;
+Symbol: SEMTREX_MATCH,INTEGER;              @todo this is actually more like [(SEMTREX_MATCH_SYMBOL,SEMTREX_MATCH_PATH,SEMTREX_MATCH_SIBLINGS_COUNT, recurseon:SEMTREX_MATCH)] but we're using the surface of the root as well which is an INTEGER.
+Symbol: SEMTREX_MATCH_CURSOR,NULL_STRUCTURE;   stores c pointer to tree node at start of match
+Symbol: SEMTREX_MATCH_RESULTS,NULL_STRUCTURE;  In the FSA_ID, keeps track of which part matches so it can be referenced
+Symbol: SEMTREX_MATCH_SYMBOL,SYMBOL;
+Symbol: SEMTREX_MATCH_SIBLINGS_COUNT,INTEGER;  In the FSA_ID, it's the length of the match
+
+Symbol: ASCII_CHAR,CHAR;
+Symbol: ASCII_CHARS,[+ASCII_CHAR];
+Symbol: ASCII_STR,CSTRING;
+
+Symbol: RECEPTOR_XADDR,XADDR;               An Xaddr that points to a receptor
+Declare: EXPECTATIONS,SIGNALS;
+Structure: ASPECT,(EXPECTATIONS,SIGNALS);
+Symbol: DEFAULT_ASPECT,ASPECT;
+#Symbol: CONTROL_ASPECT,ASPECT;
+Symbol: FLUX,[+%ASPECT];                    tree to hold all incoming and in process signals on the various aspects
+Symbol: SCAPE_SPEC,NULL_STRUCTURE;          @todo...
+Symbol: ASPECT_IDENT,SYMBOL;                when we get ranges, this should limit the surface symbol those defined as usages of ASPECT
+Symbol: ASPECT_TYPE,BIT;                    really should be an enum of IN, OUT
+Symbol: ASPECT_LABEL,CSTRING;
+Symbol: ASPECT_DEF,[(ASPECT_TYPE,ASPECT_LABEL)];   what else goes in the aspect definition?
+Symbol: ASPECTS,[+ASPECT_DEF];
+Symbol: CARRIER,SYMBOL;
+Symbol: BODY,TREE;                          orthogonal tree that holds message body
+Symbol: SIGNAL_UUID,UUID;           @todo change from UUID to hash link as per #132
+Symbol: IN_RESPONSE_TO_UUID,UUID;   @todo change from UUID to hash link as per #132
+Symbol: CONVERSATION_UUID,UUID;     @todo change from UUID to hash link as per #132
+Symbol: RECEPTOR_PATH,TREE_PATH;
+Symbol: RECEPTOR_PATHS,[+RECEPTOR_PATH];
+Symbol: RECEPTOR_ADDR,INTEGER;
+Structure: RECEPTOR_ADDRESS,|{RECEPTOR_ADDR|RECEPTOR_PATH};
+Symbol: FROM_ADDRESS,RECEPTOR_ADDRESS;
+Symbol: TO_ADDRESS,RECEPTOR_ADDRESS;
+Declare: END_CONDITIONS;
+Symbol: ENVELOPE,[(SIGNAL_UUID)];
+#Symbol: TOPIC,SYMBOL;    semantic identifier for a conversation
+#,?TOPIC
+Symbol: CONVERSATION_IDENT,[(CONVERSATION_UUID)];
+Symbol: HEAD,[(FROM_ADDRESS,TO_ADDRESS,ASPECT_IDENT,CARRIER,?CONVERSATION_IDENT,?|{END_CONDITIONS|IN_RESPONSE_TO_UUID})];
+Symbol: MESSAGE,[(HEAD,BODY)];              meta-data of a signal
+Symbol: SIGNAL,[(ENVELOPE,MESSAGE)];        a signal on the flux.  It's first child is the contents of the signal
+Symbol: SIGNALS,[*SIGNAL];                  list of signals on an aspect in the flux
+Symbol: PENDING_SIGNALS,[*SIGNAL];          list of signals pending to be sent by the SYS_RECEPTOR
+Symbol: CODE_PATH,TREE_PATH;
+Symbol: PROCESS_IDENT,INTEGER;
+Structure: CODE_REF,(PROCESS_IDENT,CODE_PATH);
+Symbol: WAKEUP_REFERENCE,CODE_REF;
+Symbol: PENDING_RESPONSE,[(SIGNAL_UUID,CARRIER,WAKEUP_REFERENCE,END_CONDITIONS,?CONVERSATION_IDENT)];
+Symbol: PENDING_RESPONSES,[*PENDING_RESPONSE];
+Symbol: RESPONSE_CARRIER,SYMBOL;            expected carrier for the response to a signal that "listen" to changes on the flux
+Symbol: PATTERN,SEMTREX_DEF;                expectation is a semtrex (thus has one child which is the first part of the semtrex)
+Symbol: ACTION,PROCESS;                     code tree_ID, which specifies the action to perform when an expectation's semtrex matches
+Declare: PARAMS,SEMANTIC_MAP;
+Symbol: EXPECTATION,[(CARRIER,PATTERN,ACTION,PARAMS,END_CONDITIONS,?SEMANTIC_MAP,?CONVERSATION_UUID)];
+Symbol: EXPECTATIONS,[*EXPECTATION];        list of carrier/expectation/action tress
+
+Declare: CONVERSATION;
+Symbol: CONVERSATIONS,[*CONVERSATION];
+Symbol: CONVERSATION,[(CONVERSATION_UUID,END_CONDITIONS,CONVERSATIONS,?WAKEUP_REFERENCE)];
+
+# process defintion symbols
+# ?the types of processes: transcode / (operate/compare) / (constrain/validate/range/enum) / flow / side-effect
+Symbol: TRANSCODER,NULL_STRUCTURE;   should be an enum value for process type
+Symbol: OPERATOR,NULL_STRUCTURE;     should be an enum value for process type
+Symbol: VALIDATOR,NULL_STRUCTURE;    should be an enum value for process type
+Symbol: PROCESS_OF_STRUCTURE,STRUCTURE;
+Symbol: PROCESS_OF_SYMBOL,SYMBOL;
+Symbol: PROCESS_OF_PROCESS,PROCESS;
+Symbol: PROCESS_OF,[|{PROCESS_OF_STRUCTURE|PROCESS_OF_SYMBOL|PROCESS_OF_PROCESS}];
+Symbol: PROCESS_TYPE,[|{TRANSCODER|OPERATOR|VALIDATOR}];
+Symbol: PROCESS_LINK,[(PROCESS_OF,PROCESS_TYPE)];
+
+Symbol: PROCESS_NAME,LABEL;
+Symbol: PROCESS_INTENTION,CSTRING;
+Declare: PROCESS_SIGNATURE;
+Symbol: CODE,[!];
+Symbol: PROCESS_DEFINITION,[(PROCESS_NAME,PROCESS_INTENTION,CODE,PROCESS_SIGNATURE,?PROCESS_LINK)];
+Symbol: PROCESSES,[*PROCESS_DEFINITION];
+
+Declare: GOAL,ROLE,USAGE,WEAL;
+Structure: SEMANTIC_REFERENCE,|{GOAL|ROLE|USAGE|WEAL};
+Symbol: SLOT_IS_VALUE_OF,SYMBOL;
+Symbol: SLOT_CHILDREN,[!];
+Structure: SLOT_STRUCTURE,(SEMANTIC_REFERENCE,?SLOT_IS_VALUE_OF,?SLOT_CHILDREN);  semantic id and optional indicator to fill the value not the structure for the element in the template that needs filling
+Symbol: SLOT,SLOT_STRUCTURE;
+Symbol: REPLACEMENT_VALUE,[!];        what to fill the slot with
+Symbol: SEMANTIC_LINK,[(SEMANTIC_REFERENCE,REPLACEMENT_VALUE)];   mapping between a semantic reference and replacement value, used for filling templates
+Structure: SEMANTIC_LINKS,(+SEMANTIC_LINK);
+Symbol: SEMANTIC_MAP,SEMANTIC_LINKS;
+Symbol: PROTOCOL_DEFAULTS,SEMANTIC_LINKS;
+
+
+Symbol: SIGNATURE_LABEL,LABEL;
+Symbol: SIGNATURE_STRUCTURE,STRUCTURE;      the structure that would match
+Symbol: SIGNATURE_SYMBOL,SYMBOL;            the symbol that would match
+Symbol: SIGNATURE_PROCESS,SYMBOL;           the output signature of the process
+Symbol: SIGNATURE_RECEPTOR,RECEPTOR;        use of receptor in signature
+Symbol: SIGNATURE_PROTOCOL,PROTOCOL;        use of protocol in signature
+Symbol: SIGNATURE_PASSTHRU,NULL_STRUCTURE;
+Symbol: SIGNATURE_ANY,NULL_STRUCTURE;
+Symbol: SIGNATURE_OPTIONAL,NULL_STRUCTURE;
+Symbol: SIGNATURE_OUTPUT_TYPE,[|{SIGNATURE_STRUCTURE|SIGNATURE_SYMBOL|SIGNATURE_PROCESS|SIGNATURE_PASSTHRU}];           the semantic type expected as result i.e. either PROCESS/STRUCTURE/SYMBOL or PASSTHRU when the type comes from a reduction of a SIGNATURE_ANY
+Structure: SIGNATURE_SEMANTIC_VARIANTS,|{SIGNATURE_STRUCTURE|SIGNATURE_SYMBOL|SIGNATURE_PROCESS|SIGNATURE_ANY};
+Symbol: SIGNATURE_INPUT_TYPE,[(SIGNATURE_SEMANTIC_VARIANTS,?SIGNATURE_OPTIONAL)];    the semantic type that would expected as input i.e. either PROCESS/STRUCTURE/SYMBOL
+Symbol: INPUT_SIGNATURE,[(SIGNATURE_LABEL,SIGNATURE_INPUT_TYPE)];
+Symbol: OUTPUT_SIGNATURE,[(SIGNATURE_LABEL,SIGNATURE_OUTPUT_TYPE)];
+
+Symbol: EXPECTED_SLOT,SLOT_STRUCTURE;  use of the slot structure not as a slot but as what kind of slot to expect (for the template signature)
+Symbol: TEMPLATE_SIGNATURE,[(*EXPECTED_SLOT)];
+Structure: PROCESS_FORM,(OUTPUT_SIGNATURE,*INPUT_SIGNATURE,*TEMPLATE_SIGNATURE);
+Symbol: PROCESS_SIGNATURE,PROCESS_FORM;
+
+Symbol: RUN_TREE,[(CODE,PARAMS,?CODE,?PARAMS)];     think about this as a stack frame and its code and error handling code plus error params   
+Symbol: PARAM_REF,TREE_PATH;                used in a code tree as a reference to a parameter
+Symbol: SIGNAL_REF,TREE_PATH;               used in a code tree triggered by an expectation as a reference to a part of the signal that triggered the action.
+Symbol: PARAMS,[*!];
+Symbol: RESULT_SYMBOL,SYMBOL;
+Symbol: RESULT_STRUCTURE,STRUCTURE;
+Symbol: RESULT_PROCESS,PROCESS;
+Symbol: RESULT_RECEPTOR,RECEPTOR;
+Symbol: RESULT_PROTOCOL,PROTOCOL;
+Symbol: REDUCTION_ERROR_SYMBOL,SYMBOL;
+
+Symbol: ROLE,SYMBOL;  A role stands for an expected agent, thus the symbol stored in a ROLE must be limited to those of structure RECEPTOR_ADDRESS.
+Symbol: GOAL,SYMBOL; A goal stands for an intended process, thus the symbol stored in a GOAL must be limited to those that are uses of the PROCESS structure.
+Symbol: USAGE,SYMBOL; A usage stands for a(n) X of a Symbol.
+Symbol: WEAL,SYMBOL; A weal stands for a included protocol, the the symbol store in an WEAL must be limited to those that are uses of the PROTOCOL structure
+Symbol: SOURCE,[+ROLE];
+Symbol: DESTINATION,[+ROLE];
+Symbol: EXPECT,[(ROLE,SOURCE,PATTERN,ACTION,?PARAMS)];
+Symbol: INITIATE,[(ROLE,DESTINATION,ACTION)];
+Symbol: PNAME,PROTOCOL;
+Symbol: INCLUSION,[(PNAME,+|{RESOLUTION|LINKAGE})];
+Structure: INTERACTION,(*EXPECT,*INITIATE);
+Symbol: WHICH_INTERACTION,SYMBOL;   the symbols stored in an WHICH_INTERACTION must be limited to those that are uses of the INTERACTION structure
+
+Declare: PROTOCOL_DEFINITION;
+Symbol: PROTOCOLS,[*PROTOCOL_DEFINITION];
+Symbol: ACTUAL_PROCESS,PROCESS;
+Symbol: ACTUAL_RECEPTOR,RECEPTOR_ADDRESS;
+Symbol: ACTUAL_SYMBOL,SYMBOL;
+Symbol: ACTUAL_PROTOCOL,PROTOCOL;
+Symbol: ACTUAL_VALUE,[!];  this really can't be an anything, rather only something that's a SYMBOL semantic type
+Symbol: WHICH_PROCESS,[(GOAL,ACTUAL_PROCESS)];
+Symbol: WHICH_RECEPTOR,[(ROLE,ACTUAL_RECEPTOR)];
+Symbol: WHICH_SYMBOL,[(USAGE,ACTUAL_SYMBOL)];
+Symbol: WHICH_PROTOCOL,[(WEAL,ACTUAL_PROTOCOL)];
+Symbol: WHICH_VALUE,[(ACTUAL_SYMBOL,ACTUAL_VALUE)];
+Structure: MAPPING,|{WHICH_PROCESS|WHICH_RECEPTOR|WHICH_SYMBOL|WHICH_PROTOCOL|WHICH_VALUE};  maps abstract semantic reference to concrete instantiation
+Symbol: RESOLUTION,MAPPING;
+Symbol: WHICH_GOAL,[(GOAL,GOAL)];
+Symbol: WHICH_ROLE,[(ROLE,ROLE)];
+Symbol: WHICH_USAGE,[(USAGE,USAGE)];
+Symbol: WHICH_WEAL,[(WEAL,WEAL)];
+Structure: LINK,|{WHICH_GOAL|WHICH_ROLE|WHICH_USAGE|WHICH_WEAL}; links two abstract semantic references (role/goal/usage/weal).
+Symbol: LINKAGE,LINK;
+Symbol: PROTOCOL_BINDINGS,[+RESOLUTION];
+
+Symbol: PROTOCOL_LABEL,LABEL;
+Symbol: PROTOCOL_SEMANTICS,[(*ROLE,*GOAL,*USAGE,*WEAL)];
+Symbol: PROTOCOL_DEFINITION,[(PROTOCOL_LABEL,PROTOCOL_SEMANTICS,*PROTOCOL_DEFAULTS,*%INTERACTION,*INCLUSION)];
+
+Symbol: SCAPES,[*%SCAPE];
+Symbol: MANIFEST_LABEL,CSTRING;           a label in the manifest to identify a binding
+Symbol: MANIFEST_SPEC,SYMBOL;             a symbol to specify what type of data must be provided for a given manifest label
+Symbol: MANIFEST_PAIR,[(MANIFEST_LABEL,MANIFEST_SPEC)];
+Symbol: MANIFEST,[+MANIFEST_PAIR];         configuration template to be filled out for the installation of a receptor
+Symbol: RECEPTOR_IDENTIFIER,INTEGER;      uuid that identifies receptors
+Symbol: RECEPTOR_PACKAGE,[(MANIFEST,RECEPTOR_IDENTIFIER,DEFINITIONS)];
+Symbol: BINDING_PAIR,[(MANIFEST_LABEL,!)];                a pair that matches a MANIFEST_LABEL with a given binding
+Symbol: BINDINGS,[+BINDING_PAIR];                    specifics that match a MANIFEST and allow a receptor to be installed
+
+Symbol: RECEPTOR_ELAPSED_TIME,INTEGER;
+Symbol: RECEPTOR_LABEL,LABEL;
+Structure: RECEPTOR_IDENTITY,RECEPTOR_LABEL,RECEPTOR_IDENTIFIER; placeholder structure for compository identifier
+
+Symbol: RECEPTOR_DEFINITION,[(RECEPTOR_LABEL,DEFINITIONS)];
+Symbol: RECEPTORS,[*RECEPTOR_DEFINITION];
+
+Symbol: RECEPTOR_STATE,[(FLUX,PENDING_SIGNALS,PENDING_RESPONSES,CONVERSATIONS,RECEPTOR_ELAPSED_TIME)];
+Symbol: PARENT_CONTEXT_NUM,INTEGER;        identifies the semantic context of a receptors parent
+Symbol: CONTEXT_NUM,INTEGER;               identifies the semantic context of a receptor
+Symbol: INSTANCE_OF,RECEPTOR;              identifies the kind of receptor this is
+Symbol: RECEPTOR_INSTANCE,[(INSTANCE_OF,CONTEXT_NUM,PARENT_CONTEXT_NUM,RECEPTOR_STATE)];
+
+Symbol: SERIALIZED_RECEPTOR,BLOB;
+
+Symbol: ACTIVE_RECEPTORS,[*RECEPTOR_XADDR];
+Symbol: SYS_STATE,[(ACTIVE_RECEPTORS)];
+
+Symbol: YEAR,INTEGER;
+Symbol: MONTH,INTEGER;
+Symbol: DAY,INTEGER;
+Symbol: HOUR,INTEGER;
+Symbol: MINUTE,INTEGER;
+Symbol: SECOND,INTEGER;
+Structure: DATE,YEAR,MONTH,DAY;
+Structure: TIME,HOUR,MINUTE,SECOND;
+Symbol: TODAY,DATE;
+Symbol: NOW,TIME;
+Structure: TIMESTAMP,TODAY,NOW;
+Symbol: TICK,TIMESTAMP;
+
+Symbol: DELIMITER,CSTRING;
+Symbol: US_SHORT_DATE,CSTRING;
+Symbol: SHORT_TIME,CSTRING;
+
+Symbol: ERROR_LOCATION,TREE_PATH;
+Symbol: ERROR_DATA,[(!)];
+Structure: REDUCTION_ERROR,(ERROR_LOCATION,ERROR_DATA);
+Symbol: ZERO_DIVIDE_ERR,REDUCTION_ERROR;
+Symbol: TOO_FEW_PARAMS_ERR,REDUCTION_ERROR;
+Symbol: TOO_MANY_PARAMS_ERR,REDUCTION_ERROR;
+Symbol: SIGNATURE_MISMATCH_ERR,REDUCTION_ERROR;
+Symbol: NOT_A_PROCESS_ERR,REDUCTION_ERROR;
+Symbol: NOT_IN_SIGNAL_CONTEXT_ERR,REDUCTION_ERROR;
+Symbol: INCOMPATIBLE_TYPE_ERR,REDUCTION_ERROR;
+Symbol: UNIX_ERRNO_ERR,REDUCTION_ERROR;
+Symbol: DEAD_STREAM_READ_ERR,REDUCTION_ERROR;
+Symbol: MISSING_SEMANTIC_MAP_ERR,REDUCTION_ERROR;
+Symbol: MISMATCH_SEMANTIC_MAP_ERR,REDUCTION_ERROR;
+Symbol: STRUCTURE_MISMATCH_ERR,REDUCTION_ERROR;
+#Symbol: CONVERSATION_COMPLETED_ERR,REDUCTION_ERROR;
+
+Symbol: WHICH_XADDR,XADDR;
+Symbol: NEW_TYPE,SYMBOL;
+Symbol: TIMEOUT_AT,TIMESTAMP;       specifies a timeout for requests
+Symbol: COUNT,INTEGER;
+Symbol: UNLIMITED,NULL_STRUCTURE;
+Symbol: REPETITIONS,[|{COUNT|UNLIMITED}];
+Symbol: END_CONDITIONS,[(?TIMEOUT_AT,?REPETITIONS)];
+
+Symbol: EDGE_STREAM,CPOINTER;
+Symbol: EDGE_LISTENER,CPOINTER;
+
+Symbol: ITERATE_ON_SYMBOL,SYMBOL;
+Symbol: ITERATION_DATA,[!];    data to iterate over
+Symbol: SCOPE,[!];    set of processes for DO/CONVERSE
+
+Process: NOOP,0,"no-op","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"do",SIGNATURE_ANY,NULL_STRUCTURE;   this process reduces to its single "do" parameter.
+
+Process: DEF_SYMBOL,0,"define a new symbol","symbol",SIGNATURE_SYMBOL,RESULT_SYMBOL,"def",SIGNATURE_SYMBOL,SYMBOL_DEFINITION;
+Process: DEF_STRUCTURE,0,"define a new structure","structure",SIGNATURE_STRUCTURE,RESULT_STRUCTURE,"def",SIGNATURE_SYMBOL,SYMBOL_DEFINITION;
+Process: DEF_PROCESS,0,"define a new process","process",SIGNATURE_PROCESS,RESULT_PROCESS,"def",SIGNATURE_SYMBOL,PROCESS_DEFINITION;
+Process: DEF_RECEPTOR,0,"define a new receptor","receptor",SIGNATURE_RECEPTOR,RESULT_RECEPTOR,"def",SIGNATURE_SYMBOL,RECEPTOR_DEFINITION;
+Process: DEF_PROTOCOL,0,"define a new protocol","protocol",SIGNATURE_PROTOCOL,RESULT_PROTOCOL,"def",SIGNATURE_SYMBOL,PROTOCOL_DEFINITION;
+
+Process: NEW,0,"new instance","xaddr",SIGNATURE_SYMBOL,WHICH_XADDR,"what",SIGNATURE_SYMBOL,NEW_TYPE,"value",SIGNATURE_ANY,NULL_STRUCTURE; reduces to the xaddr of a newly created instance of type NEW_TYPE.  the structures of "what" and "value" must match, but not the symbols
+Process: GET,0,"get instance value","value",SIGNATURE_ANY,NULL_STRUCTURE,"what",SIGNATURE_SYMBOL,WHICH_XADDR;   reduces to the value of the instance at the xaddr of the "what" parameter
+Process: DEL,0,"delete instance","value",SIGNATURE_ANY,NULL_STRUCTURE,"what",SIGNATURE_SYMBOL,WHICH_XADDR;   reduces to the value of the deleted instance at the xaddr of the "what" parameter
+Process: DO,0,"do","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"actions",SIGNATURE_SYMBOL,SCOPE; execute a SCOPE of instructions for side-effects returning the value of the last one.  I would like it better if the actions could just be the children of the DO process
+
+Symbol: PARAM_PATH,TREE_PATH;
+Symbol: PARAM_LABEL,[%CSTRING];
+Symbol: PARAMETER_REFERENCE,[|{PARAM_PATH|PARAM_LABEL}];  a way of refering to the parameter to be
+Symbol: RESULT_VALUE,NULL_STRUCTURE;
+Symbol: RESULT_LABEL,SYMBOL;
+Symbol: PARAMETER_RESULT,[|{RESULT_SYMBOL|RESULT_VALUE|RESULT_LABEL}]; if the value of PARAMETER_RESULT is RESULT_SYMBOL, PARAMETER will reduce to the parameter's symbol at the RESULT_SYMBOL symbol. If the value is RESULT_VALUE then PARAMETER will reduce to the parameter's value. If the value is RESULT_LABEL, then PARAMETER will reduce to the label of the symbol type stored in RESULT_LABEL (or the default if not found)
+Process: PARAMETER,0,"get parameter data","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"reference",SIGNATURE_SYMBOL,PARAMETER_REFERENCE,"as",SIGNATURE_SYMBOL,PARAMETER_RESULT;
+Process: DISSOLVE,0,"merge children into parent's children","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"tree",SIGNATURE_ANY,NULL_STRUCTURE; remove the root of the child, merging it's children into the parent's children at the process's spot
+
+Symbol: TRANSCODE_TO,SYMBOL;
+Symbol: TRANSCODE_PARAMS,[(TRANSCODE_TO,*!)];
+Symbol: TRANSCODE_ITEMS,[!];
+
+Process: TRANSCODE,0,"transform semantic type","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"using",SIGNATURE_SYMBOL,TRANSCODE_PARAMS,"convert",SIGNATURE_SYMBOL,TRANSCODE_ITEMS; transform the semantic types of a itemstree to a different type as specified in the parameters.  If TRANSCODE_ITEMS has multiple children DISSOLVE is implied
+
+Symbol: LABEL_SYMBOL,SYMBOL;
+Symbol: LABEL_TYPE,SYMBOL;   should be limmited to symbols of type CSTRING by validator...
+Process: GET_LABEL,0,"get a symbol's label","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"of",SIGNATURE_SYMBOL,LABEL_SYMBOL,"type",SIGNATURE_SYMBOL,LABEL_TYPE,"as",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,RESULT_SYMBOL; 
+
+Symbol: COND_PAIR,[(!,!)];
+Symbol: COND_ELSE,[!];
+Symbol: CONDITIONS,[(*COND_PAIR,COND_ELSE)];
+Process: COND,0,"cond","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"conditions",SIGNATURE_SYMBOL,CONDITIONS; this is a traditional lisp "cond" process that reduces conditionally to the COND_PAIR that evaluates to true, or to the COND_ELSE in none of them do.
+Process: IF,0,"if","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"condition",SIGNATURE_PROCESS,BOOLEAN,"then",SIGNATURE_ANY,NULL_STRUCTURE,"else",SIGNATURE_OPTIONAL,SIGNATURE_ANY,NULL_STRUCTURE;  this is a traditional "if" process that reduces conditionally to either the "then" or the "else" parameter depending on the value of the "condition" parameter.  Note: we may be replacing this with a more lispy COND process
+Process: ITERATE,0,"iterate a process","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"condtion",SIGNATURE_PROCESS,BOOLEAN,"do",SIGNATURE_ANY,NULL_STRUCTURE;                     this process checks the structure of the result of the "condition" param, if it's a BOOLEAN, it treats the iteration as a while loop and iterates until the BOOLEAN is false; if it's an INTEGER it treats the iteration as repeat loop and iterates as many times as the value of the INTEGER; if it's a ITERATE_ON_SYMBOL then it iterates on all the instances of that symbol type which get added into the PARAMS each time through
+Process: SAY,0,"send a message to a receptor","signal id",SIGNATURE_SYMBOL,SIGNAL_UUID,"to",SIGNATURE_SYMBOL,TO_ADDRESS,"on",SIGNATURE_SYMBOL,ASPECT_IDENT,"carrier",SIGNATURE_SYMBOL,CARRIER,"message",SIGNATURE_ANY,NULL_STRUCTURE;
+Process: REQUEST,0,"send a request to a receptor","response",SIGNATURE_ANY,NULL_STRUCTURE,"of",SIGNATURE_SYMBOL,TO_ADDRESS,"on",SIGNATURE_SYMBOL,ASPECT_IDENT,"carrier",SIGNATURE_SYMBOL,CARRIER,"message",SIGNATURE_ANY,NULL_STRUCTURE,"expect response on",SIGNATURE_SYMBOL,RESPONSE_CARRIER,"until",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,END_CONDITIONS,"callback",SIGNATURE_OPTIONAL,SIGNATURE_PROCESS,NULL_SYMBOL;  if there is no "callback" param, then this process will block until the result comes back or the "until" causes cleanup of pending request.
+Process: CONVERSE,0,"set up a conversation scope for signaling","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"do",SIGNATURE_PROCESS,NULL_SYMBOL,"until",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,END_CONDITIONS,"wait",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,BOOLEAN; Use "until" to specify when the system will terminate the conversation.  Use "wait" to specify whether the CONVERSE instruction should be paused when it goes out of scope waiting for the conversation to complete. If you use asynchronous REQUEST or LISTEN instructions in the scope the conversation and you don’t set "wait" to TRUE you will want to use the THIS_SCOPE instruction to get the conversation identifier so you can call the COMPLETE instruction someplace later or the conversation will never get cleaned up.
+Process: COMPLETE,0,"cause a conversation to come to completion","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"with",SIGNATURE_ANY,NULL_STRUCTURE,"conversation",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,CONVERSATION_UUID; Cleans up a conversation and causes the CONVERSE instruction to reduce to value of "with". If "conversation" provided, completes that conversation, otherwise assumes the value of THIS_SCOPE.  If the specified conversation doesn’t exist (i.e. because it was cleaned up by its end conditions) COMPLETE will invoke the error handler.  Note that it’s possible that the CONVERSE instruction was already reduced, in which case the value of with_someting will get ignored.  If the COMPLETE instruction is not inside a CONVERSE scope, it will be reduced to the value of "conversation"
+Process: THIS_SCOPE,0,"get the conversation id of the current scope","conversation",SIGNATURE_SYMBOL,CONVERSATION_UUID;    Reduces to the identifier of the current conversation. Executing THIS_SCOPE not somewhere inside a CONVERSE will invoke the error handler.
+Process: SELF_ADDR,0,"self address","address",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"as",SIGNATURE_SYMBOL,RESULT_SYMBOL;  reduces to current RECEPTOR_ADDRESS as a use of the as symbol
+Process: LISTEN,0,"plant a listener","error",SIGNATURE_SYMBOL,REDUCTION_ERROR_SYMBOL,"on",SIGNATURE_SYMBOL,ASPECT_IDENT,"for",SIGNATURE_SYMBOL,CARRIER,"match",SIGNATURE_SYMBOL,PATTERN,"do",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,ACTION,"with",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,PARAMS,"until",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,END_CONDITIONS;  If you don't provide an action, the assumption is that the LISTEN process will block and  will reduce to the SEMTREX_MATCH.  This will also force the END_CONDITIONS/REPETITIONS to COUNT:1.  If "for" carrier is NULL_SYMBOL the expectation will match on all carriers.
+Process: MATCH,0,"semtrex match","matched",SIGNATURE_SYMBOL,BOOLEAN,"pattern",SIGNATURE_STRUCTURE,SEMTREX,"against",SIGNATURE_ANY,NULL_STRUCTURE,"return match",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,BOOLEAN;
+
+Process: RESPOND,0,"respond to signal","response id",SIGNATURE_SYMBOL,SIGNAL_UUID,"respond on",SIGNATURE_SYMBOL,CARRIER,"response contents",SIGNATURE_ANY,NULL_STRUCTURE;
+Process: QUOTE,0,"quote a process so that it can be passed as a value","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"process",SIGNATURE_PROCESS,NULL_PROCESS;
+Process: FILL,0,"fill template from map","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"template",SIGNATURE_ANY,NULL_STRUCTURE,"map",SIGNATURE_SYMBOL,SEMANTIC_MAP;
+Process: FILL_FROM_MATCH,0,"fill template from match results","result",SIGNATURE_ANY,NULL_STRUCTURE;
+Process: RAISE,0,"raise reduction error","result",SIGNATURE_STRUCTURE,NULL_STRUCTURE,"error",SIGNATURE_SYMBOL,REDUCTION_ERROR_SYMBOL;   this process doesn't really return anything, because it triggers the handler for the error in the "error" parameter
+Process: STREAM_READ,0,"read from a stream","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"stream",SIGNATURE_SYMBOL,EDGE_STREAM,"into",SIGNATURE_SYMBOL,RESULT_SYMBOL;  the data on the stream will appear as the surface of the symbol type given by the "into" param. Clearly this could get ugly as there is no semantic checking that that's ok...
+Process: STREAM_WRITE,0,"write to a stream","result",SIGNATURE_PASSTHRU,NULL_STRUCTURE,"stream",SIGNATURE_SYMBOL,EDGE_STREAM,"what",SIGNATURE_ANY,NULL_STRUCTURE;
+Process: STREAM_ALIVE,0,"test if stream is alive for reading","alive",SIGNATURE_SYMBOL,BOOLEAN,"stream",SIGNATURE_SYMBOL,EDGE_STREAM;
+Process: STREAM_CLOSE,0,"close a stream","true",SIGNATURE_SYMBOL,BOOLEAN,"stream",SIGNATURE_SYMBOL,EDGE_STREAM;
+Process: CONCAT_STR,0,"concatinate strings","concatenation",SIGNATURE_STRUCTURE,CSTRING,"into",SIGNATURE_SYMBOL,RESULT_SYMBOL,"str1",SIGNATURE_STRUCTURE,CSTRING,"str2",SIGNATURE_STRUCTURE,CSTRING;  concatenates two strings of any symbol type into an new symbol type specified by the "into" parameter
+Process: EXPAND_STR,0,"expand string","ascii tree",SIGNATURE_SYMBOL,ASCII_CHARS,"str",SIGNATURE_STRUCTURE,CSTRING;  converts a CSTRING into an ASCII_CHARS tree
+Process: CONTRACT_STR,0,"contract to string","string",SIGNATURE_STRUCTURE,CSTRING,"into",SIGNATURE_SYMBOL,RESULT_SYMBOL;  converts any number of chars or cstring into a single cstring of symbol type indicated by the into param
+Symbol: EQUALITY_TEST_SYMBOL,SYMBOL;  a symbol to use when testing the symbol equality
+Process: EQ_SYM,0,"test equality","equality",SIGNATURE_SYMBOL,BOOLEAN,"symbol1",SIGNATURE_STRUCTURE,SYMBOL,"symbol2",SIGNATURE_STRUCTURE,SYMBOL;  test the quality of two SYMBOL type parameters
+Process: ADD_INT,0,"addition","sum",SIGNATURE_STRUCTURE,INTEGER,"augend",SIGNATURE_STRUCTURE,INTEGER,"addend",SIGNATURE_STRUCTURE,INTEGER;
+Process: SUB_INT,0,"subtract","difference",SIGNATURE_STRUCTURE,INTEGER,"minuend",SIGNATURE_STRUCTURE,INTEGER,"subtrahend",SIGNATURE_STRUCTURE,INTEGER;
+Process: MULT_INT,0,"multiply","product",SIGNATURE_STRUCTURE,INTEGER,"multiplicand",SIGNATURE_STRUCTURE,INTEGER,"multiplier",SIGNATURE_STRUCTURE,INTEGER;
+Process: DIV_INT,0,"divide","quotient",SIGNATURE_STRUCTURE,INTEGER,"dividend",SIGNATURE_STRUCTURE,INTEGER,"divisor",SIGNATURE_STRUCTURE,INTEGER;
+Process: MOD_INT,0,"modulo","remainder",SIGNATURE_STRUCTURE,INTEGER,"dividend",SIGNATURE_STRUCTURE,INTEGER,"divisor",SIGNATURE_STRUCTURE,INTEGER;
+ProcessL: EQ_INT,0,"test equality",INTEGER,OPERATOR,"equality",SIGNATURE_SYMBOL,BOOLEAN,"int1",SIGNATURE_STRUCTURE,INTEGER,"int2",SIGNATURE_STRUCTURE,INTEGER;
+ProcessL: LT_INT,0,"test less than",INTEGER,OPERATOR,"result",SIGNATURE_SYMBOL,BOOLEAN,"int1",SIGNATURE_STRUCTURE,INTEGER,"int2",SIGNATURE_STRUCTURE,INTEGER;
+ProcessL: GT_INT,0,"test greater than",INTEGER,OPERATOR,"result",SIGNATURE_SYMBOL,BOOLEAN,"int1",SIGNATURE_STRUCTURE,INTEGER,"int2",SIGNATURE_STRUCTURE,INTEGER;
+ProcessL: LTE_INT,0,"test less than or equal",INTEGER,OPERATOR,"result",SIGNATURE_SYMBOL,BOOLEAN,"int1",SIGNATURE_STRUCTURE,INTEGER,"int2",SIGNATURE_STRUCTURE,INTEGER;
+ProcessL: GTE_INT,0,"test greater than or equal",INTEGER,OPERATOR,"result",SIGNATURE_SYMBOL,BOOLEAN,"int1",SIGNATURE_STRUCTURE,INTEGER,"int2",SIGNATURE_STRUCTURE,INTEGER;
+Symbol: POP_COUNT,INTEGER;
+Process: POP_PATH,0,"pop values off a tree path","result",SIGNATURE_PASSTHRU,NULL_SYMBOL,"path",SIGNATURE_STRUCTURE,TREE_PATH,"as",SIGNATURE_SYMBOL,RESULT_SYMBOL,"count",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,POP_COUNT;
+Symbol: CONTINUE_LOCATION,TREE_PATH;
+Symbol: CONTINUE_VALUE,[!];
+Process: CONTINUE,0,"restart reduction at some parent","result",SIGNATURE_PASSTHRU,NULL_SYMBOL,"at",SIGNATURE_SYMBOL,CONTINUE_LOCATION,"with",SIGNATURE_SYMBOL,CONTINUE_VALUE;
+Process: INITIATE_PROTOCOL,0,"initiate the first step of a protocol","error",SIGNATURE_SYMBOL,REDUCTION_ERROR_SYMBOL,"protocol",SIGNATURE_SYMBOL,PNAME,"interaction",SIGNATURE_SYMBOL,WHICH_INTERACTION,"bindings",SIGNATURE_SYMBOL,PROTOCOL_BINDINGS;
+Process: MAGIC,0,"dark magic","result",SIGNATURE_ANY,NULL_STRUCTURE;   this process reduces to hardcoded special things as a scaffold for things we don't know how to build in ceptr yet.
+
+Symbol: STX_SL,NULL_STRUCTURE;
+Symbol: STX_OP,NULL_STRUCTURE;
+Symbol: STX_CP,NULL_STRUCTURE;
+Symbol: STX_SET,NULL_STRUCTURE;
+Symbol: STX_OS,NULL_STRUCTURE;
+Symbol: STX_CS,NULL_STRUCTURE;
+Symbol: STX_LABEL,CSTRING;
+Symbol: STX_OG,CSTRING;
+Symbol: STX_CG,NULL_STRUCTURE;
+Symbol: STX_EQ,CSTRING;
+Symbol: STX_NEQ,CSTRING;
+Symbol: STX_WALK,NULL_STRUCTURE;
+Symbol: STX_STAR,NULL_STRUCTURE;
+Symbol: STX_PLUS,NULL_STRUCTURE;
+Symbol: STX_Q,NULL_STRUCTURE;
+Symbol: STX_OR,NULL_STRUCTURE;
+Symbol: STX_COMMA,NULL_STRUCTURE;
+Symbol: STX_EXCEPT,CSTRING;
+Symbol: STX_NOT,NULL_STRUCTURE;
+Symbol: STX_VAL_S,CSTRING;
+Symbol: STX_VAL_C,CHAR;
+Symbol: STX_VAL_I,INTEGER;
+Symbol: STX_VAL_F,FLOAT;
+
+Structure: STX_TOKEN_LIST,*|{STX_SL|STX_OP|STX_CP|STX_SET|STX_OS|STX_CS|STX_LABEL|STX_OG|STX_CG|STX_EQ|STX_NEQ|STX_WALK|STX_STAR|STX_PLUS|STX_Q|STX_OR|STX_COMMA|STX_EXCEPT|STX_NOT|STX_VAL_S|STX_VAL_C|STX_VAL_I|STX_VAL_F};
+Symbol: STX_TOKENS,STX_TOKEN_LIST;
+
+Symbol: STX_SIBS,[+!];
+Symbol: STX_CHILD,[!];
+Symbol: STX_POSTFIX,[!];
+
+Symbol: TREE_DELTA_PATH,TREE_PATH;
+Symbol: TREE_DELTA_VALUE,[!];
+Symbol: TREE_DELTA_COUNT,INTEGER;
+Structure: TREE_DELTA,TREE_DELTA_PATH,TREE_DELTA_VALUE,TREE_DELTA_COUNT;
+Symbol: TREE_DELTA_ADD,TREE_DELTA;
+Symbol: TREE_DELTA_REPLACE,TREE_DELTA;
+
+Symbol: SYMBOL_INSTANCES,SYMBOL;
+Symbol: DELETED_INSTANCE,NULL_STRUCTURE;
+Symbol: INSTANCE_TOKEN,INTEGER64; token to refer to an xaddr from outside the receptor
+Symbol: LAST_TOKEN,INTEGER64; token counter for gen
+Symbol: INSTANCES,[*SYMBOL_INSTANCES];
+Symbol: INSTANCE_TOKENS,[(LAST_TOKEN,*INSTANCE_TOKEN)];
+Symbol: INSTANCE_STORE,[(INSTANCES,?INSTANCE_TOKENS)];
+Symbol: DEPENDENCY_HASH,INTEGER;
+Symbol: TOKEN_XADDR,XADDR;
+
+#language labels
+Symbol: ENGLISH_LABEL,CSTRING;
+Symbol: SPANISH_LABEL,CSTRING;
+Symbol: FRENCH_LABEL,CSTRING;
+Symbol: GERMAN_LABEL,CSTRING;
+
+########################################################################################
+# this context will contain SEED or POD structures that wrap receptors for global sharing
+Context: COMPOSITORY;
+
+
+########################################################################################
+# definitions in progress that only exist on a local machine
+Context: DEV_COMPOSITORY;
+
+Symbol: P_OP,NULL_STRUCTURE;
+Symbol: P_CP,NULL_STRUCTURE;
+Symbol: P_COLON,NULL_STRUCTURE;
+Symbol: P_INTERPOLATE,NULL_STRUCTURE;
+Symbol: P_LABEL,CSTRING;
+Symbol: P_VAL_S,CSTRING;
+Symbol: P_VAL_C,CHAR;
+Symbol: P_VAL_I,INTEGER;
+Symbol: P_VAL_F,FLOAT;
+Symbol: P_VAL_PATH,TREE_PATH;
+
+Symbol: P_TOKENS,[*|{P_OP|P_CP|P_COLON|P_LABEL|P_VAL_S|P_VAL_C|P_VAL_I|P_VAL_F|P_VAL_PATH}];
+
+Data: date2usshortdate_proc,(CONCAT_STR (RESULT_SYMBOL:US_SHORT_DATE) 
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:ASCII_STR))
+                 (TRANSCODE_ITEMS
+                     (PARAM_REF:/2/1/2)
+                     (DELIMITER:"/")
+                     (PARAM_REF:/2/1/3)
+                     (DELIMITER:"/")
+                     (PARAM_REF:/2/1/1))));
+ProcessL: date2usshortdate,date2usshortdate_proc,"date to us short format date transcoder",DATE,TRANSCODER,"to",SIGNATURE_SYMBOL,US_SHORT_DATE,"from",SIGNATURE_STRUCTURE,DATE;
+
+Data: time2shortime_proc,(CONCAT_STR (RESULT_SYMBOL:SHORT_TIME)
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:ASCII_STR))
+                 (TRANSCODE_ITEMS
+                     (PARAM_REF:/2/1/1)
+                     (DELIMITER:":")
+                     (PARAM_REF:/2/1/2)
+                     (DELIMITER:":")
+                     (PARAM_REF:/2/1/3))));
+ProcessL: time2shortime,time2shortime_proc,"time to short format date transcoder",TIME,TRANSCODER,"to",SIGNATURE_SYMBOL,SHORT_TIME,"from",SIGNATURE_STRUCTURE,TIME;
+
+###### defs for an abstract requesting protocol
+Symbol: REQUESTER,RECEPTOR_ADDRESS;
+Symbol: RESPONDER,RECEPTOR_ADDRESS;
+Symbol: REQUEST_TYPE,SYMBOL;
+Symbol: RESPONSE_TYPE,SYMBOL;
+Symbol: CHANNEL,SYMBOL;
+Symbol: REQUEST_HANDLER,PROCESS;
+Symbol: RESPONSE_HANDLER,PROCESS;
+Symbol: RESPONSE_HANDLER_PARAMETERS,SYMBOL;
+
+Symbol: backnforth,INTERACTION;
+
+Data: req_code,(SLOT (GOAL:RESPONSE_HANDLER) (SLOT_CHILDREN (SLOT (USAGE:RESPONSE_HANDLER_PARAMETERS)) (REQUEST (SLOT (ROLE:RESPONDER) (SLOT_IS_VALUE_OF:TO_ADDRESS)) (SLOT (USAGE:CHANNEL) (SLOT_IS_VALUE_OF:ASPECT_IDENT)) (CARRIER:backnforth) (SLOT (USAGE:REQUEST_TYPE)) (CARRIER:backnforth))));
+Process: send_request,req_code,"send request","response",SIGNATURE_ANY,NULL_STRUCTURE;
+
+Data: resp_code,(RESPOND (SIGNAL_REF:/2/1/4) (SLOT (GOAL:REQUEST_HANDLER)));
+Process: send_response,resp_code,"send response","response id",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: req_def,(PROTOCOL_DEFINITION
+      (PROTOCOL_SEMANTICS
+         (ROLE:REQUESTER)
+         (ROLE:RESPONDER)
+         (GOAL:RESPONSE_HANDLER)
+         (GOAL:REQUEST_HANDLER)
+         (USAGE:CHANNEL)
+         (USAGE:REQUEST_TYPE)
+         (USAGE:RESPONSE_TYPE)
+         (USAGE:RESPONSE_HANDLER_PARAMETERS))
+      (PROTOCOL_DEFAULTS (SEMANTIC_LINK (USAGE:RESPONSE_HANDLER_PARAMETERS) (REPLACEMENT_VALUE (NULL_SYMBOL))))
+      (backnforth
+         (INITIATE (ROLE:REQUESTER) (DESTINATION (ROLE:RESPONDER)) (ACTION:send_request))
+         (EXPECT (ROLE:RESPONDER) (SOURCE (ROLE:REQUESTER)) (PATTERN (SEMTREX_SYMBOL_LITERAL (SLOT (USAGE:REQUEST_TYPE) (SLOT_IS_VALUE_OF:SEMTREX_SYMBOL)))) (ACTION:send_response))));
+
+Protocol: REQUESTING,req_def;
+
+# @todo:  questions:  how did it get made explicit that the signature of the RESPONSE_HANDLER is of type RESPONSE_TYPE?  somehow when req_code got filled on the fly?  It's necessary to be able to figure this out for UI that would make visible what you can compose with REQUESTING.
+
+##### defs for recognize protocol (like ping, only semantic)
+Symbol: RECOGNIZER,RECEPTOR_ADDRESS;
+Symbol: RECOGNIZEE,RECEPTOR_ADDRESS;
+Symbol: RECOGNITION,PROCESS;
+Symbol: are_you,SEMTREX;
+Symbol: i_am,RECEPTOR_IDENTITY;
+
+Data: iam_code,(NOOP (i_am (RECEPTOR_LABEL (ENGLISH_LABEL:"super cept")) (RECEPTOR_IDENTIFIER:314159)));
+Process: fill_i_am,iam_code,"fill i am","identity",SIGNATURE_STRUCTURE,RECEPTOR_IDENTITY,"pattern",SIGNATURE_OPTIONAL,SIGNATURE_SYMBOL,are_you;
+
+Data: recog_def,(PROTOCOL_DEFINITION
+      (PROTOCOL_SEMANTICS)
+      (INCLUSION (PNAME:REQUESTING)
+                 (LINKAGE (WHICH_ROLE (ROLE:REQUESTER) (ROLE:RECOGNIZER)))
+                 (LINKAGE (WHICH_ROLE (ROLE:RESPONDER) (ROLE:RECOGNIZEE)))
+                 (LINKAGE (WHICH_GOAL (GOAL:RESPONSE_HANDLER) (GOAL:RECOGNITION)))
+                 (RESOLUTION (WHICH_SYMBOL (USAGE:REQUEST_TYPE) (ACTUAL_SYMBOL:are_you)))
+                 (RESOLUTION (WHICH_SYMBOL (USAGE:RESPONSE_TYPE) (ACTUAL_SYMBOL:i_am)))
+                 (RESOLUTION (WHICH_SYMBOL (USAGE:CHANNEL) (ACTUAL_SYMBOL:DEFAULT_ASPECT)))
+                 (RESOLUTION (WHICH_PROCESS (GOAL:REQUEST_HANDLER) (ACTUAL_PROCESS:fill_i_am)))));
+
+Protocol: RECOGNIZE,recog_def;
+
+##### defs for shell receptor
+Symbol: LINE,CSTRING;                           text lines from unix streams
+Symbol: LINES,[*LINE];
+Symbol: VERB,CSTRING;
+Symbol: COMMAND_PARAMETER,CSTRING;
+Structure: COMMAND,(VERB,*COMMAND_PARAMETER);
+Symbol: SHELL_COMMAND,COMMAND;
+
+Symbol: LINE_SENDER,RECEPTOR_ADDRESS;
+Symbol: COMMAND_RECEIVER,RECEPTOR_ADDRESS;
+Symbol: parse_line,INTERACTION;
+Symbol: COMMAND_TYPE,SYMBOL;
+
+Data: line_2_command_proc,(SAY
+      (SLOT (ROLE:COMMAND_RECEIVER) (SLOT_IS_VALUE_OF:TO_ADDRESS))
+      (ASPECT_IDENT:DEFAULT_ASPECT)
+      (SLOT (USAGE:COMMAND_TYPE) (SLOT_IS_VALUE_OF:CARRIER))
+      (SLOT (USAGE:COMMAND_TYPE)
+            (SLOT_CHILDREN
+                (CONTRACT_STR (RESULT_SYMBOL:VERB) (PARAM_REF:/2/1))
+            ))
+      );
+Process: line_2_command,line_2_command_proc,"parse a COMMAND from a LINE","signal id",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: cl_parser_def,
+      (PROTOCOL_DEFINITION
+          (PROTOCOL_SEMANTICS (ROLE:LINE_SENDER) (ROLE:COMMAND_RECEIVER) (USAGE:COMMAND_TYPE))
+          (parse_line
+                (EXPECT (ROLE:COMMAND_RECEIVER) (SOURCE (ROLE:LINE_SENDER)) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:LINE))) (ACTION:line_2_command) (PARAMS (SLOT (USAGE:NULL_SYMBOL))))
+                ));
+
+Protocol: PARSE_COMMAND_FROM_LINE,cl_parser_def;
+
+
+Data: shell_def,(PROTOCOL_DEFINITION
+      (PROTOCOL_SEMANTICS)
+      (INCLUSION (PNAME:REQUESTING)
+                 (RESOLUTION (WHICH_SYMBOL (USAGE:REQUEST_TYPE) (ACTUAL_SYMBOL:COMMAND)))
+# we can't do this here because the code is too complicated be produced by the perl parser see shell.c for the actuall shell_handler code
+#                 (RESOLUTION (WHICH_PROCESS (GOAL:REQUEST_HANDLER) (ACTUAL_PROCESS:shell_handler)))
+                 (RESOLUTION (WHICH_SYMBOL (USAGE:CHANNEL) (ACTUAL_SYMBOL:DEFAULT_ASPECT)))
+                 ));
+Protocol: COMMAND_SHELL,shell_def;
+
+###### definitions for an ALIVE protocol
+Symbol: SERVER,RECEPTOR_ADDRESS;
+Symbol: CLIENT,RECEPTOR_ADDRESS;
+Symbol: PING,NULL_STRUCTURE;
+Symbol: YUP,NULL_STRUCTURE;
+Symbol: HANDLER,PROCESS;
+
+Data: ping_resp,(RESPOND (SIGNAL_REF:/2/1/4) (YUP));
+Process: respond_with_yup,ping_resp,"respond with yup","response id",SIGNATURE_SYMBOL,SIGNAL_UUID;
+Symbol: alive,INTERACTION;
+
+Data: alive_def,
+      (PROTOCOL_DEFINITION
+          (PROTOCOL_SEMANTICS (ROLE:SERVER) (ROLE:CLIENT) (GOAL:HANDLER))
+          (alive
+                (EXPECT (ROLE:SERVER) (SOURCE (ROLE:CLIENT)) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:PING))) (ACTION:respond_with_yup))
+                (EXPECT (ROLE:CLIENT) (SOURCE (ROLE:SERVER)) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:YUP))) (SLOT (GOAL:HANDLER) (SLOT_IS_VALUE_OF:ACTION)))));
+
+Protocol: ALIVE,alive_def;
+
+##### defs for group receptor
+Symbol: GROUP,RECEPTOR_ADDRESS;
+Symbol: MEMBER,RECEPTOR_ADDRESS;
+Symbol: enrollment,INTERACTION;
+Symbol: converse,INTERACTION;
+Symbol: MESSAGE_TEXT,CSTRING;
+
+Data: request_membership_code,(SAY (SLOT (ROLE:GROUP) (SLOT_IS_VALUE_OF:TO_ADDRESS)) (ASPECT_IDENT:DEFAULT_ASPECT) (CARRIER:enrollment) (YUP));   we could say anything, just using yup for now...
+Process: request_membership,request_membership_code,"request membership","result",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: enroll_code,(NEW (NEW_TYPE:MEMBER) (SIGNAL_REF:/1/1/1));  /1/1/1 is the FROM_ADDRESS
+Process: enroll,enroll_code,"enroll client","result",SIGNATURE_STRUCTURE,NULL_STRUCTURE;
+
+Data: speak_code,(SAY (SLOT (ROLE:GROUP) (SLOT_IS_VALUE_OF:TO_ADDRESS)) (ASPECT_IDENT:DEFAULT_ASPECT) (CARRIER:converse) (SLOT (USAGE:MESSAGE_TEXT)));
+Process: speak,speak_code,"speak","result",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: group_listen_code,
+      (DO (SCOPE
+              (NEW (NEW_TYPE:MESSAGE_TEXT) (PARAM_REF:/2/1))
+              (ITERATE (PARAMS) (ITERATE_ON_SYMBOL:MEMBER) (SAY (PARAM_REF:/1/1/2/1/1/1) (ASPECT_IDENT:DEFAULT_ASPECT) (CARRIER:converse) (PARAM_REF:/2/1)))));  we could also use SIGNAL_REF /1/2/0 as the contents of the BODY
+Process: group_listen,group_listen_code,"group_listen","result",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: group1_def,
+      (PROTOCOL_DEFINITION
+          (PROTOCOL_SEMANTICS (ROLE:GROUP) (ROLE:MEMBER) (GOAL:HANDLER))
+          (enrollment
+                (EXPECT (ROLE:GROUP) (ROLE:MEMBER) (PATTERN (SEMTREX_SYMBOL_ANY)) (ACTION:enroll))
+                (INITIATE (ROLE:MEMBER) (ROLE:GROUP) (ACTION:request_membership)))
+          (converse
+                (EXPECT (ROLE:GROUP) (ROLE:MEMBER) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:MESSAGE_TEXT))) (ACTION:group_listen) (PARAMS (SLOT (USAGE:NULL_SYMBOL))))
+                (EXPECT (ROLE:MEMBER) (ROLE:GROUP) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:MESSAGE_TEXT))) (SLOT (GOAL:HANDLER) (SLOT_IS_VALUE_OF:ACTION)))
+                (INITIATE (ROLE:MEMBER) (ROLE:GROUP) (ACTION:speak)))
+                );
+                
+Protocol: group1,group1_def;
+ 
+########################################################################################
+# a handful of definitions for testing things
+Context: TEST;
+
+Symbol: TEST_INT_SYMBOL,INTEGER;
+Symbol: TEST_INT_SYMBOL2,INTEGER;
+Symbol: TEST_INT64_SYMBOL,INTEGER64;
+Symbol: TEST_FLOAT_SYMBOL,FLOAT;
+Symbol: TEST_STR_SYMBOL,CSTRING;
+Symbol: TEST_TREE_SYMBOL,TREE;      an orthogonal tree
+Symbol: TEST_ANYTHING_SYMBOL,[!];   used to build trees in testing of unknown structure
+Symbol: TEST_ANYTHING_SYMBOL2,[!];
+Symbol: TEST_NAME_SYMBOL,CSTRING;
+Symbol: TEST_ALPHABETIZE_SCAPE_SYMBOL,SCAPE;
+Symbol: TEST_SYMBOL_SYMBOL,SYMBOL;
+Symbol: TESTING,SYMBOL;
+Symbol: TEST_CHAR_SYMBOL,CHAR;
+Symbol: TEST_INTEGERS,[*TEST_INT_SYMBOL];
+
+########################################################################################
+Context: CLOCK;
+
+Symbol: TIME_TELLER,RECEPTOR_ADDRESS;
+Symbol: TIME_HEARER,RECEPTOR_ADDRESS;
+Symbol: CLOCK_TELL_TIME,NULL_STRUCTURE;
+Symbol: tell_time,INTERACTION;
+Data: time_req_code,(SLOT (GOAL:RESPONSE_HANDLER) (SLOT_CHILDREN (REQUEST (SLOT (ROLE:TIME_TELLER) (SLOT_IS_VALUE_OF:TO_ADDRESS)) (ASPECT_IDENT:DEFAULT_ASPECT) (CARRIER:tell_time) (CLOCK_TELL_TIME) (RESPONSE_CARRIER:tell_time))));
+Process: time_request,time_req_code,"request current time","response",SIGNATURE_SYMBOL,TICK;
+
+# note: look for the clock protocol def in src/receptor.c#_r_defineClockReceptor
+#       currently we don't have a way to define xaddrs as "immediate" data which
+#       is necessary to complete the protocol definition for the clock receptor
+
+########################################################################################
+Context: STREAM_EDGE;
+
+########################################################################################
+Context: INTERNET;
+
+Symbol: OCTET_STREAM,CSTRING;
+
+#generic key-value pair def
+Symbol: PARAM_KEY,CSTRING;
+Symbol: PARAM_VALUE,CSTRING;
+Structure: KEY_VALUE_PARAM,(PARAM_KEY,PARAM_VALUE);
+
+# generic version defs
+Symbol: VERSION_MAJOR,INTEGER;
+Symbol: VERSION_MINOR,INTEGER;
+Structure: VERSION,(VERSION_MAJOR,VERSION_MINOR);
+
+# generic status defs
+Symbol: STATUS_VALUE,INTEGER;
+Symbol: STATUS_TEXT,CSTRING;
+Structure: STATUS,(STATUS_VALUE,STATUS_TEXT);
+
+# URI defs
+
+Symbol: HTTP_REQUEST_PATH_SEGMENT,CSTRING;
+Symbol: HTTP_REQUEST_PATH_SEGMENTS,[*HTTP_REQUEST_PATH_SEGMENT];
+Symbol: FILE_NAME,CSTRING;
+Symbol: FILE_EXTENSION,CSTRING;
+Structure: FILE_HANDLE,(FILE_NAME,FILE_EXTENSION);
+Symbol: HTTP_REQUEST_PATH_FILE,FILE_HANDLE;
+Symbol: HTTP_REQUEST_PATH_QUERY_PARAM,KEY_VALUE_PARAM;
+Symbol: HTTP_REQUEST_PATH_QUERY_PARAMS,[*HTTP_REQUEST_PATH_QUERY_PARAM];
+Symbol: HTTP_REQUEST_PATH_QUERY,[*HTTP_REQUEST_PATH_QUERY_PARAMS];
+
+Structure: URI,(
+       HTTP_REQUEST_PATH_SEGMENTS,
+       HTTP_REQUEST_PATH_FILE,
+       HTTP_REQUEST_PATH_QUERY
+       );
+
+
+Symbol: HTTP_HEADER_LABEL,CSTRING;
+Symbol: MEDIA_TYPE_LABEL,CSTRING;
+
+# media type defs (for content-type)
+
+Symbol: MEDIA_TYPE_IDENT,SYMBOL;
+Symbol: MEDIA_SUBTYPE_IDENT,SYMBOL;
+Symbol: MEDIA_PARAM,KEY_VALUE_PARAM;
+Structure: MEDIA_TYPE,(MEDIA_TYPE_IDENT,MEDIA_SUBTYPE_IDENT,*MEDIA_PARAM);
+Symbol: CONTENT_TYPE,MEDIA_TYPE;
+Label: CONTENT_TYPE,HTTP_HEADER_LABEL,"Content-Type";
+
+# basic media types
+Symbol: TEXT_MEDIA_TYPE,NULL_STRUCTURE;
+Label: TEXT_MEDIA_TYPE,MEDIA_TYPE_LABEL,"text";
+Symbol: HTML_TEXT_MEDIA_SUBTYPE,NULL_STRUCTURE;
+Label:  HTML_TEXT_MEDIA_SUBTYPE,MEDIA_TYPE_LABEL,"html";
+Symbol: PLAIN_TEXT_MEDIA_SUBTYPE,NULL_STRUCTURE;
+Label:  PLAIN_TEXT_MEDIA_SUBTYPE,MEDIA_TYPE_LABEL,"plain";
+Symbol: CEPTR_TEXT_MEDIA_SUBTYPE,NULL_STRUCTURE;
+Label:  CEPTR_TEXT_MEDIA_SUBTYPE,MEDIA_TYPE_LABEL,"ceptr";
+
+Symbol: MEDIA_TYPE_SEPARATOR,NULL_STRUCTURE;
+Label: MEDIA_TYPE_SEPARATOR,MEDIA_TYPE_LABEL,"/";
+Symbol: HEADER_SEPARATOR,NULL_STRUCTURE;
+Label: HEADER_SEPARATOR,HTTP_HEADER_LABEL,": ";
+
+Data: meda_type_2_ascii_str_proc, (CONCAT_STR (RESULT_SYMBOL:ASCII_STR)
+      (GET_LABEL (PARAM_REF:/2/1/1) (LABEL_TYPE:MEDIA_TYPE_LABEL))
+      (GET_LABEL (LABEL_SYMBOL:MEDIA_TYPE_SEPARATOR) (LABEL_TYPE:MEDIA_TYPE_LABEL))
+      (GET_LABEL (PARAM_REF:/2/1/2) (LABEL_TYPE:MEDIA_TYPE_LABEL))
+      );
+ProcessL: meda_type_2_ascii_str,meda_type_2_ascii_str_proc,"media type transcoder",MEDIA_TYPE,TRANSCODER,"output",SIGNATURE_SYMBOL,ASCII_STR,"input",SIGNATURE_STRUCTURE,MEDIA_TYPE;
+
+Data: content_type_2_line_proc, (CONCAT_STR (RESULT_SYMBOL:LINE)
+      (PARAMETER (PARAMETER_REFERENCE (PARAM_PATH:/2/1)) (PARAMETER_RESULT (RESULT_LABEL:HTTP_HEADER_LABEL)))
+      (GET_LABEL (LABEL_SYMBOL:HEADER_SEPARATOR) (LABEL_TYPE:HTTP_HEADER_LABEL))
+      (meda_type_2_ascii_str (PARAM_REF:/2/1))
+      );
+
+ProcessL: content_type_2_line,content_type_2_line_proc,"content type transcoder",CONTENT_TYPE,TRANSCODER,"output",SIGNATURE_SYMBOL,LINE,"input",SIGNATURE_SYMBOL,CONTENT_TYPE;
+
+Symbol: CONTENT_ENCODING,CSTRING;  cstring for now, add semantic later.
+
+# http defs
+
+Symbol: HEADER_KEY,CSTRING;
+Symbol: HEADER_VALUE,CSTRING;
+Structure: HEADER,(HEADER_KEY,HEADER_VALUE);    generic headers for now, should be more semantic
+Symbol: LINE_HEADER,HEADER;
+Symbol: LINE_HEADERS,[(*HEADER)];
+Symbol: HTTP_RESPONSE_HEADER,HEADER;
+Symbol: HTTP_GENERAL_HEADER,HEADER;
+Symbol: HTTP_ENTITY_HEADER,[|{CONTENT_TYPE|CONTENT_ENCODING}];    @todo plus a few more see https://www.w3.org/Protocols/rfc2616/rfc2616-sec7.html#sec7.1
+
+Symbol: HTTP_REQUEST_HOST,CSTRING;  @todo, should actually be a "domain-name address:port"
+Symbol: HTTP_REQUEST_USER_AGENT,CSTRING;
+Symbol: HTTP_REQUEST_METHOD,CSTRING;
+Symbol: HTTP_REQUEST_PATH,URI;
+Symbol: HTTP_REQUEST_VERSION,VERSION;
+Symbol: HTTP_REQUEST_LINE,[(HTTP_REQUEST_VERSION,HTTP_REQUEST_METHOD,HTTP_REQUEST_PATH)];
+Symbol: HTTP_REQUEST_BODY,[!];
+Symbol: HTTP_REQUEST_HEADER,[|{HTTP_REQUEST_HOST|HTTP_REQUEST_USER_AGENT}];  @todo plus a bunch more see rfc2616 section 5.3
+Symbol: HTTP_REQUEST_HEADERS,[*|{HTTP_REQUEST_HEADER|HTTP_GENERAL_HEADER|HTTP_ENTITY_HEADER}];
+Symbol: HTTP_REQUEST,[(HTTP_REQUEST_LINE,HTTP_REQUEST_HEADERS,HTTP_REQUEST_BODY)];
+
+Symbol: HTTP_RESPONSE_BODY,[!];
+Symbol: HTTP_RESPONSE_STATUS,STATUS;
+Symbol: HTTP_HEADER,[|{HTTP_GENERAL_HEADER|HTTP_RESPONSE_HEADER|HTTP_ENTITY_HEADER}];
+Symbol: HTTP_HEADERS,[*HTTP_HEADER];
+Symbol: HTTP_RESPONSE,[(HTTP_RESPONSE_STATUS,HTTP_HEADERS,HTTP_RESPONSE_BODY)];
+
+Data: http_response_status_2_ascii_str_proc, (CONTRACT_STR (RESULT_SYMBOL:ASCII_STR)
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:ASCII_STR)) (TRANSCODE_ITEMS (PARAM_REF:/2/1/1)))
+      (ASCII_CHAR:' ')
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:ASCII_STR)) (TRANSCODE_ITEMS (PARAM_REF:/2/1/2)))
+      );
+ProcessL:  http_response_status_2_ascii_str, http_response_status_2_ascii_str_proc,"http response status transcoder",HTTP_RESPONSE_STATUS,TRANSCODER,"output",SIGNATURE_SYMBOL,ASCII_STR,"input",SIGNATURE_SYMBOL,HTTP_RESPONSE_STATUS;
+
+Data: http_response_2_lines_proc, (LINES
+      (CONTRACT_STR (RESULT_SYMBOL:LINE) (ASCII_STR:"HTTP") (ASCII_CHAR:'/') (ASCII_STR:"1.1 ") (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:ASCII_STR)) (TRANSCODE_ITEMS (PARAM_REF:/2/1/1)) (ASCII_CHAR:' ') (PARAM_REF:/2/1/2)))
+      (DISSOLVE (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:LINES)) (TRANSCODE_ITEMS (PARAM_REF:/2/1/2))))
+      (LINE:"")
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:LINE)) (TRANSCODE_ITEMS (PARAM_REF:/2/1/3))))
+      ;
+
+ProcessL: http_response_2_lines,http_response_2_lines_proc,"http response transcoder",HTTP_RESPONSE,TRANSCODER,"output",SIGNATURE_SYMBOL,LINES,"input",SIGNATURE_SYMBOL,HTTP_RESPONSE;
+
+# html defs
+Symbol: HTML_DOCUMENT,NULL_STRUCTURE; //@todo should be an optionality structure
+Symbol: HTML_TOK_TAG_OPEN,CSTRING;
+Symbol: HTML_TOK_TAG_CLOSE,CSTRING;
+Symbol: HTML_TOK_TAG_SELFCLOSE,CSTRING;
+Symbol: HTML_TAG,CSTRING;
+Symbol: HTML_TOKENS,NULL_STRUCTURE;   //@todo should be an optionality structure
+Symbol: HTML_ATTRIBUTE,KEY_VALUE_PARAM;
+Symbol: HTML_ATTRIBUTES,[*HTML_ATTRIBUTE];
+Symbol: HTML_CONTENT,NULL_STRUCTURE;  // really should be semtrex: /(HTML_ELEMENT|HTML_TEXT)+
+Symbol: HTML_TEXT,CSTRING;
+Structure: HTML_ELEMENT,(HTML_ATTRIBUTES,HTML_CONTENT);
+Symbol: HTML_HTML,HTML_ELEMENT;
+Symbol: HTML_HEAD,HTML_ELEMENT;
+Symbol: HTML_TITLE,HTML_ELEMENT;
+Symbol: HTML_BODY,HTML_ELEMENT;
+Symbol: HTML_DIV,HTML_ELEMENT;
+Symbol: HTML_P,HTML_ELEMENT;
+Symbol: HTML_IMG,HTML_ELEMENT;
+Symbol: HTML_A,HTML_ELEMENT;
+Symbol: HTML_B,HTML_ELEMENT;
+Symbol: HTML_UL,HTML_ELEMENT;
+Symbol: HTML_OL,HTML_ELEMENT;
+Symbol: HTML_LI,HTML_ELEMENT;
+Symbol: HTML_SPAN,HTML_ELEMENT;
+Symbol: HTML_H1,HTML_ELEMENT;
+Symbol: HTML_H2,HTML_ELEMENT;
+Symbol: HTML_H3,HTML_ELEMENT;
+Symbol: HTML_H4,HTML_ELEMENT;
+Symbol: HTML_FORM,HTML_ELEMENT;
+Symbol: HTML_INPUT,HTML_ELEMENT;
+Symbol: HTML_BUTTON,HTML_ELEMENT;
+
+GlobalData: http_req_example,
+(HTTP_REQUEST
+   (HTTP_REQUEST_LINE
+   (HTTP_REQUEST_VERSION
+      (VERSION_MAJOR:1)
+      (VERSION_MINOR:1))
+   (HTTP_REQUEST_METHOD:"GET")
+   (HTTP_REQUEST_PATH
+      (HTTP_REQUEST_PATH_SEGMENTS
+         (HTTP_REQUEST_PATH_SEGMENT:"groups")
+         (HTTP_REQUEST_PATH_SEGMENT:"5"))
+      (HTTP_REQUEST_PATH_FILE
+         (FILE_NAME:"users")
+         (FILE_EXTENSION:"json"))
+      (HTTP_REQUEST_PATH_QUERY
+         (HTTP_REQUEST_PATH_QUERY_PARAMS
+            (HTTP_REQUEST_PATH_QUERY_PARAM
+               (PARAM_KEY:"sort_by")
+               (PARAM_VALUE:"last_name"))
+            (HTTP_REQUEST_PATH_QUERY_PARAM
+               (PARAM_KEY:"page")
+               (PARAM_VALUE:"2"))))))
+    (HTTP_REQUEST_HEADERS)           
+    (HTTP_REQUEST_BODY)
+               );    GET /groups/5/users.json?sort_by=last_name?page=2 HTTP/1.1
+
+##### defs for HTTP protocol
+Symbol: HTTP_CLIENT,RECEPTOR_ADDRESS;
+Symbol: HTTP_SERVER,RECEPTOR_ADDRESS;
+
+Symbol: HTTP_REQUEST_PARSER,RECEPTOR_ADDRESS;
+
+Data: line_2_httpreq_proc, (SAY
+      (SLOT (ROLE:LINE_SENDER) (SLOT_IS_VALUE_OF:TO_ADDRESS))
+      (ASPECT_IDENT:DEFAULT_ASPECT)
+      (CARRIER:LINE)
+      (TRANSCODE (TRANSCODE_PARAMS (TRANSCODE_TO:LINES)) (TRANSCODE_ITEMS
+         (REQUEST
+            (SLOT (ROLE:HTTP_SERVER) (SLOT_IS_VALUE_OF:TO_ADDRESS))
+            (ASPECT_IDENT:HTTP_ASPECT)
+            (CARRIER:backnforth)
+            (PARAM_REF:/2/1)
+            (RESPONSE_CARRIER:backnforth))))
+      );
+
+Process: line_2_httpreq,line_2_httpreq_proc,"parse an HTTP_REQUEST from a LINE","signal id",SIGNATURE_SYMBOL,SIGNAL_UUID;
+
+Data: httpreq_parser_def,
+      (PROTOCOL_DEFINITION
+          (PROTOCOL_SEMANTICS (ROLE:LINE_SENDER) (ROLE:HTTP_REQUEST_PARSER) (ROLE:HTTP_SERVER))
+          (parse_line
+                (EXPECT (ROLE:HTTP_REQUEST_PARSER) (SOURCE (ROLE:LINE_SENDER)) (PATTERN (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:ASCII_CHARS) (SEMTREX_GROUP:HTTP_REQUEST (SEMTREX_SEQUENCE (SEMTREX_GROUP:HTTP_REQUEST_METHOD (SEMTREX_ONE_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (ASCII_CHAR:' ')))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:' ')) (SEMTREX_GROUP:HTTP_REQUEST_PATH (SEMTREX_GROUP:HTTP_REQUEST_PATH_SEGMENTS (SEMTREX_ONE_OR_MORE (SEMTREX_SEQUENCE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'/')) (SEMTREX_GROUP:HTTP_REQUEST_PATH_SEGMENT (SEMTREX_ZERO_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'/') (ASCII_CHAR:'?') (ASCII_CHAR:' '))))))))) (SEMTREX_ZERO_OR_ONE (SEMTREX_SEQUENCE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'?')) (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY (SEMTREX_ONE_OR_MORE (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY_PARAMS (SEMTREX_ONE_OR_MORE (SEMTREX_SEQUENCE (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY_PARAM (SEMTREX_SEQUENCE (SEMTREX_GROUP:PARAM_KEY (SEMTREX_ONE_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'&') (ASCII_CHAR:' ') (ASCII_CHAR:'='))))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'=')) (SEMTREX_GROUP:PARAM_VALUE (SEMTREX_ZERO_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'&') (ASCII_CHAR:' '))))))) (SEMTREX_ZERO_OR_ONE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'&')))))))))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:' ')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'H')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'T')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'T')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'P')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'/')) (SEMTREX_GROUP:HTTP_REQUEST_VERSION (SEMTREX_SEQUENCE (SEMTREX_GROUP:VERSION_MAJOR (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'0'))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'.')) (SEMTREX_GROUP:VERSION_MINOR (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'9')))))))))
+                (ACTION:line_2_httpreq) (PARAMS (SLOT (USAGE:HTTP_REQUEST))))
+                ));
+
+Protocol: PARSE_HTTP_REQUEST_FROM_LINE,httpreq_parser_def;
+
+Data: ascii_chars_2_http_req_proc, (FILL_FROM_MATCH
+      (SLOT (USAGE:HTTP_REQUEST))
+      (MATCH (SEMTREX_SYMBOL_LITERAL (SEMTREX_SYMBOL:ASCII_CHARS) (SEMTREX_GROUP:HTTP_REQUEST (SEMTREX_SEQUENCE (SEMTREX_GROUP:HTTP_REQUEST_METHOD (SEMTREX_ONE_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (ASCII_CHAR:' ')))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:' ')) (SEMTREX_GROUP:HTTP_REQUEST_PATH (SEMTREX_GROUP:HTTP_REQUEST_PATH_SEGMENTS (SEMTREX_ONE_OR_MORE (SEMTREX_SEQUENCE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'/')) (SEMTREX_GROUP:HTTP_REQUEST_PATH_SEGMENT (SEMTREX_ZERO_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'/') (ASCII_CHAR:'?') (ASCII_CHAR:' '))))))))) (SEMTREX_ZERO_OR_ONE (SEMTREX_SEQUENCE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'?')) (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY (SEMTREX_ONE_OR_MORE (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY_PARAMS (SEMTREX_ONE_OR_MORE (SEMTREX_SEQUENCE (SEMTREX_GROUP:HTTP_REQUEST_PATH_QUERY_PARAM (SEMTREX_SEQUENCE (SEMTREX_GROUP:PARAM_KEY (SEMTREX_ONE_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'&') (ASCII_CHAR:' ') (ASCII_CHAR:'='))))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'=')) (SEMTREX_GROUP:PARAM_VALUE (SEMTREX_ZERO_OR_MORE (SEMTREX_VALUE_LITERAL_NOT (SEMTREX_VALUE_SET (ASCII_CHAR:'&') (ASCII_CHAR:' '))))))) (SEMTREX_ZERO_OR_ONE (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'&')))))))))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:' ')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'H')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'T')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'T')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'P')) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'/')) (SEMTREX_GROUP:HTTP_REQUEST_VERSION (SEMTREX_SEQUENCE (SEMTREX_GROUP:VERSION_MAJOR (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'0'))) (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'.')) (SEMTREX_GROUP:VERSION_MINOR (SEMTREX_VALUE_LITERAL (ASCII_CHAR:'9')))))))) 
+             (PARAM_REF:/2/1) (BOOLEAN:1))
+      (PARAM_REF:/2/1)
+      );
+
+ProcessL: ascii_chars_2_http_req,ascii_chars_2_http_req_proc,"http req transcoder",ASCII_CHARS,TRANSCODER,"output",SIGNATURE_SYMBOL,HTTP_REQUEST,"input",SIGNATURE_SYMBOL,ASCII_CHARS;
+
+
+Symbol: HTTP_ASPECT,ASPECT;
+Symbol: HTTP_REQUEST_HANDLER,PROCESS;
+
+Data: httpresp_proc,(HTTP_RESPONSE (HTTP_RESPONSE_STATUS (STATUS_VALUE:200) (STATUS_TEXT:"OK")) (HTTP_HEADERS (CONTENT_TYPE (MEDIA_TYPE_IDENT:TEXT_MEDIA_TYPE) (MEDIA_SUBTYPE_IDENT:CEPTR_TEXT_MEDIA_SUBTYPE))) (HTTP_RESPONSE_BODY (SLOT (GOAL:HTTP_REQUEST_HANDLER))));
+Process: httpresp,httpresp_proc,"build an HTTP_RESPONSE","response",SIGNATURE_SYMBOL,HTTP_RESPONSE;
+
+
+%{
+/* from basedef.y */
+%}
+
+%start directives
+
+%token CONTEXT DATA DECLARE GLOBALDATA LABEL PROCESS PROCESSL PROTOCOL STRUCTURE
+%token SYMBOL WORD ARGS COMMA COLON SEMI_EOL NUMBER D_QUOTE S_QUOTE B_QUOTE
+%token OPEN_PAREN CLOSE_PAREN OPEN_BRACE CLOSE_BRACE OPEN_SQ_BRACKET CLOSE_SQ_BRACKET
+%token OPEN_ANGLE_BRACKET CLOSE_ANGLE_BRACKET SEMICOLON PERIOD QUESTION STAR PLUS
+%token MINUS EQUAL TILDA CAROT AT VERTICAL_BAR AND PERCENT BANG SHARP SLASH BACKSLASH
+%token NEWLINE STRING CHAR
+
+directives: directives directive | directive;
+
+directive: CONTEXT COLON WORD SEMI_EOL
+         | DATA COLON WORD COMMA balanced SEMI_EOL
+         | DECLARE COLON wordlist SEMI_EOL
+         | GLOBALDATA COLON WORD COMMA balanced SEMI_EOL
+         | LABEL COLON WORD COMMA WORD COMMA STRING SEMI_EOL
+         | PROCESS COLON process_args SEMI_EOL
+         | PROCESSL COLON process_args SEMI_EOL
+         | PROTOCOL COLON wordlist SEMI_EOL
+         | STRUCTURE COLON WORD COMMA balanced SEMI_EOL
+         | SYMBOL COLON WORD COMMA WORD SEMI_EOL
+         | SYMBOL COLON WORD COMMA bracketted SEMI_EOL
+         ;
+
+//
+// DECLARE and PROTOCOL
+//
+wordlist: WORD
+        | WORD COMMA wordlist ;
+        ;
+
+//
+// The rest have a 'WORD COMMA' prefix for an lvalue (in all cases?)
+//
+// SYMBOL rvalue
+// (rvalue can also be just a WORD)
+//
+bracketted: OPEN_SQ_BRACKET balanced CLOSE_SQ_BRACKET ;
+
+//
+// DATA, GLOBALDATA and STRUCTURE rvalue
+//
+balanced: balanced_item
+        | balanced balanced_item
+
+balanced_item: arg_bal
+        | OPEN_BRACE balanced CLOSE_BRACE
+        | OPEN_PAREN balanced CLOSE_PAREN
+        ;
+
+arg_bal: NEWLINE | NUMBER | WORD | CHAR | STRING | COMMA | PERIOD | QUESTION | COLON
+       | D_QUOTE | STAR | PLUS | MINUS | EQUAL | TILDA | CAROT | AT | VERTICAL_BAR
+       | AND | PERCENT | BANG | SHARP | SLASH
+       ;
+
+arg_token: WORD
+         | NUMBER
+         | CHAR
+         | STRING
+          ;
+
+process_args: arg_token
+            | process_args COMMA arg_token 
+            ;
+
+

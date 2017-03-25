@@ -8,8 +8,8 @@ package ast
 
 import (
 	"fmt"
-	"go/scanner"
-	"go/token"
+	"ceptr/scanner"
+	"ceptr/token"
 	"strconv"
 )
 
